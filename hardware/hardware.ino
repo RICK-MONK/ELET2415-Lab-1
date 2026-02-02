@@ -51,12 +51,12 @@
 // MQTT CLIENT CONFIG  
 static const char* pubtopic       = "620169874";                    // Add your ID number here
 static const char* subtopic[]     = {"620169874_sub","/elet2415"};  // Array of Topics(Strings) to subscribe to
-static const char* mqtt_server    = "192.168.0.6";                // Broker IP address or Domain name as a String 
+static const char* mqtt_server    = "www.yanacreations.com";                // Broker IP address or Domain name as a String 
 static uint16_t mqtt_port         = 1883;
 
 // WIFI CREDENTIALS
-const char* ssid                  = "ARRIS-ED5E-5G"; // Add your Wi-Fi ssid
-const char* password              = "70DFF79FED5E"; // Add your Wi-Fi password 
+const char* ssid                  = "gadfa’s iPhone"; // Add your Wi-Fi ssid
+const char* password              = "12345678"; // Add your Wi-Fi password 
 
 
 
@@ -119,13 +119,18 @@ void setup() {
   // Configure Button (Important: Use INPUT_PULLUP)
   pinMode(BTN_A, INPUT_PULLUP);
 
+  
+  // Initialize Random
+  randomSeed(analogRead(0));
+  
+
   // --- MISSING REQUIREMENT ADDED HERE ---
   Display(8); // Display 8 on start-up 
   // --------------------------------------
 
   initialize();
   
-  xTaskCreate(vButtonCheck, "Button Check", 2048, NULL, 1, NULL);
+  xTaskCreate(vButtonCheck, "Button Check",4096, NULL, 1, NULL);
 }
   
 
@@ -246,6 +251,7 @@ void GDP(void){
 // Definition for initialize to ensure MQTT setup is called
 void initialize(void) {
   initMQTT(); 
+  vNTPFunction();
 }
 
 // ############## MQTT CALLBACK ######################################

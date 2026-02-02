@@ -7,7 +7,38 @@
 
 
 class DB:
+    def getAllUpdates(self):
+        '''RETURNS ALL DOCUMENTS IN THE UPDATE COLLECTION'''
+        try:
+            remotedb = self.remoteMongo('mongodb://%s:%s/' % (self.server, self.port), tls=self.tls)
+            # Find all documents, exclude the MongoDB _id, and sort by latest
+            result = list(remotedb.ELET2415.update.find({}, {'_id': 0}).sort('timestamp', -1))
+            return result
+        except Exception as e:
+            print("getAllUpdates error ", str(e))
+            return []
+    def __init__(self):
+        # REPLACE THE OLD AUTHENTICATION STRING WITH THIS ONE:
+        self.client = MongoClient("mongodb://localhost:27017/")
+        
+        self.db     = self.client.ELET2415
+        self.collection = self.db.update
 
+    def remoteMongo(self, uri, tls=False):
+        '''
+        HELPER FUNCTION TO ESTABLISH MONGODB CONNECTION
+        '''
+        try:
+            # Create a new client and connect to the server
+            client = MongoClient(uri, tls=tls, serverSelectionTimeoutMS=5000)
+            
+            # Trigger a simple command to verify connection
+            client.server_info()
+            
+            return client
+        except Exception as e:
+            print(f"remoteMongo Connection Error: {e}")
+            return None
     def __init__(self,Config):
 
         from math import floor
@@ -51,44 +82,62 @@ class DB:
     # LAB 1 FUNCTIONS  #
     ####################
     
-    def addUpdate(self,data):
+    ####################
+    # LAB 1 FUNCTIONS  #
+    ####################
+    
+    def addUpdate(self, data):
         '''ADD A NEW STORAGE LOCATION TO COLLECTION'''
         try:
-            remotedb 	= self.remoteMongo('mongodb://%s:%s@%s:%s' % (self.username, self.password,self.server,self.port), tls=self.tls)
-            result      = remotedb.ELET2415.update.insert_one(data)
+            # REMOVED USERNAME/PASSWORD FROM HERE
+            remotedb = self.remoteMongo('mongodb://%s:%s/' % (self.server, self.port), tls=self.tls)
+            result = remotedb.ELET2415.update.insert_one(data)
+            return True
         except Exception as e:
             msg = str(e)
             if "duplicate" not in msg:
-                print("addUpdate error ",msg)
+                print("addUpdate error ", msg)
             return False
-        else:                  
-            return True
-        
 
     def numberFrequency(self):
-        '''RETURNS A LIST OF OBJECTS. EACH OBJECT CONTAINS A NUMBER AND ITS FREQUECY'''
+        '''RETURNS A LIST OF OBJECTS WITH NUMBER AND FREQUENCY'''
         try:
-            remotedb 	= self.remoteMongo('mongodb://%s:%s@%s:%s' % (self.username, self.password,self.server,self.port), tls=self.tls)
-            result      = list(remotedb.ELET2415.update.aggregate([ { '$group': { '_id': '$number', 'frequency': { '$sum': 1 } } }, { '$sort': { '_id': 1 } }, { '$project': { '_id': 0, 'number': '$_id', 'frequency': 1 } } ]))
+            # REMOVED USERNAME/PASSWORD FROM HERE
+            remotedb = self.remoteMongo('mongodb://%s:%s/' % (self.server, self.port), tls=self.tls)
+            
+            result = list(remotedb.ELET2415.update.aggregate([
+                {
+                    '$group': {
+                        '_id': '$number',
+                        'frequency': {'$sum': 1}
+                    }
+                },
+                {
+                    '$sort': {'_id': 1}
+                },
+                {
+                    '$project': {
+                        '_id': 0,
+                        'number': '$_id',
+                        'frequency': 1
+                    }
+                }
+            ]))
+            return result
         except Exception as e:
             msg = str(e)
-            print("numberFrequency error ",msg)
-            
-        else:                  
-            return result
+            print("numberFrequency error ", msg)
+            return []
 
-
-    def onCount(self,LED_Name):
-        '''RETURN A COUNT OF HOW MANY TIME A SPECIFIC LED WAS TURNED ON'''
+    def onCount(self, LED_Name):
+        '''RETURNS COUNT OF HOW MANY TIMES A SPECIFIC LED WAS ON'''
         try:
-            remotedb 	= self.remoteMongo('mongodb://%s:%s@%s:%s' % (self.username, self.password,self.server,self.port), tls=self.tls)
-            result      = remotedb.ELET2415.update.count_documents({LED_Name:{"$eq":1}})
-        except Exception as e:
-            msg = str(e) 
-            print("onCount error ",msg)             
-        else:                  
+            remotedb = self.remoteMongo('mongodb://%s:%s/' % (self.server, self.port), tls=self.tls)
+            result = remotedb.ELET2415.update.count_documents({LED_Name: 1})
             return result
-
+        except Exception as e:
+            print("onCount error ", str(e))
+            return 0
 
 
 def main():

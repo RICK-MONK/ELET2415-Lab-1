@@ -1,30 +1,35 @@
-
-from os import  environ
-from os.path import  abspath, dirname 
+import os
 from dotenv import load_dotenv
 
-load_dotenv()  # load environment variables from .env if it exists.
-basedir = abspath(dirname(__file__))
+# Try to load the .env file
+load_dotenv()
 
-class Config(object):
-    """Base Config Object"""
+class Config:
+    # 1. Database Credentials
+    DB_USERNAME = os.environ.get('DB_USERNAME', 'root')
+    DB_PASSWORD = os.environ.get('DB_PASSWORD', 'pass')
     
+    # 2. Database Connection
+    DB_SERVER   = os.environ.get('DB_HOST', 'localhost') 
+    DB_PORT     = os.environ.get('DB_PORT', '27017')
+    DB_NAME     = os.environ.get('DB_NAME', 'ELET2415')
+    
+    # 3. MQTT Configuration
+    BROKER_URL  = os.environ.get('BROKER_URL', 'localhost')
+    BROKER_PORT = int(os.environ.get('BROKER_PORT', 1883))
+    
+    # 4. Flask Server Configuration (New!)
+    FLASK_DEBUG    = True
+    FLASK_RUN_HOST = "0.0.0.0"
+    FLASK_RUN_PORT = 8080
 
-    FLASK_DEBUG                             = eval(environ.get('DEBUG','False'))
-    SECRET_KEY                              = environ.get('SECRET_KEY', 'Som3$ec5etK*y')
-    UPLOADS_FOLDER                          = environ.get('UPLOADS_FOLDER') 
-    IMAGE_FOLDER                            = environ.get('IMAGE_FOLDER') 
+    # Debug: Confirm it is working
+    print(f"Config Loaded - Username: {DB_USERNAME}")
+    
+    #other settings
+    MQTT_BROKER_URL     = "localhost"
+    MQTT_BROKER_PORT    = 1883
+    # Ensure this matches your ID
+    MQTT_TOPIC          = "620169874"
 
-    ENV                                     = environ.get('FLASK_ENV') 
-    FLASK_RUN_PORT                          = environ.get('FLASK_RUN_PORT') 
-    FLASK_RUN_HOST                          = environ.get('FLASK_RUN_HOST') 
-
-    # MONGODB VARIABLES
-    DB_USERNAME                             = environ.get('DB_USERNAME') 
-    DB_PASSWORD                             = environ.get('DB_PASSWORD') 
-    DB_SERVER                               = environ.get('DB_SERVER') 
-    DB_PORT                                 = environ.get('DB_PORT') 
-
-    PROPAGATE_EXCEPTIONS                    = False
- 
- 
+    

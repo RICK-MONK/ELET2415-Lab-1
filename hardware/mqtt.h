@@ -1,284 +1,136 @@
-//#############################################################################################
-//#                                                                                           #
-//#                                      MQTT HEADER FILE                                     #
-//#                                                                                           #
-//#############################################################################################
+#ifndef MQTT_H
+#define MQTT_H
 
-
-#ifndef _MQTT_H
-#define _MQTT_H 1
-#endif
-
+#include <WiFi.h>
 #include <PubSubClient.h>
 
-// NOTES:
-// https://pubsubclient.knolleary.net/api
+// --------------------------------------------------------------------------
+// EXTERNAL VARIABLES (Brings in variables defined in hardware.ino)
+// --------------------------------------------------------------------------
+extern const char* ssid;
+extern const char* password;
+extern const char* mqtt_server;
+extern uint16_t mqtt_port;
+extern const char* pubtopic;
+extern const char* subtopic[]; 
+extern TaskHandle_t xMQTT_Connect; // Task handle from hardware.ino
 
+// Function Prototype for the callback in hardware.ino
+extern void callback(char* topic, byte* payload, unsigned int length);
 
+// --------------------------------------------------------------------------
+// OBJECTS
+// --------------------------------------------------------------------------
+WiFiClient espClient;
+PubSubClient client(espClient);
 
-//############ VARIABLES ################ 
-static char deviceName[50]   = "H"; // HARDWARE
- 
+// --------------------------------------------------------------------------
+// HELPER FUNCTIONS
+// --------------------------------------------------------------------------
 
-//############## FUNCTIONS  #################### 
-void vButtonCheckFunction( void ); 
-void vUpdateFunction( void ); 
+// 1. Connect to Wi-Fi
+void setup_wifi() {
+  delay(10);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
 
-/* create an instance of PubSubClient client */ 
-WiFiClient espClient; 
-PubSubClient mqtt(espClient); 
- 
-
-
-//###############################################
-//#        DO NOT MODIFY ANY CODE BELOW         # 
-//###############################################
-
-
-//*********************************************************************************************
-//                                       MQTT SETUP                                           *
-//*********************************************************************************************
-void MQTT_Connect( void * pvParameters ){
-   /* The parameter value is expected to be 1 as 1 is passed in the pvParameters value in the call to xTaskCreate() below. */
-  configASSERT( ( ( uint32_t ) pvParameters ) == 1 );
-
-  
-  for ( ;; ){
-
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
-    // Serial.printf("mqtt connected %d  %d\n",mqtt.connected(),mqtt.state());
-
-    while (!mqtt.connected() ) {        
-
-        char clientID[50]       = {0}; 
-        char clientName[50]     = {0};         
-
-        /* Intializes random number generator */
-        time_t t;
-        srand((unsigned) time(&t));
-
-        // Client ID              
-        snprintf(clientID ,sizeof(clientID ),"IOT_%s_%d",deviceName, rand() % 5000);            
-        Serial.printf("\nMQTT Connection ID: %s ", clientID);      
-
-        /* connect now */
-        if (mqtt.connect(clientID)) { 
-            Serial.println("\n\n***** MQTT CONNECTED! *****\n\n");             
-            
-            const uint8_t size = sizeof(subtopic)/sizeof(subtopic[0]);
-            for(int x = 0; x< size ; x++){
-              mqtt.subscribe(subtopic[x]);
-            } 
-            break;
-        } 
-        else {
-          Serial.printf("\nConnection failed with status code : %d ,  re-trying in 10 seconds\n", mqtt.state());   
-        }
-
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
-    }   
-   
-  }
-
-
-}
-
-/* Function that creates a task. */
-void MQTT_ConnectFunction( void ) {
-  BaseType_t xReturned;
-
-  /* Create the task, storing the handle. */
-  xReturned = xTaskCreatePinnedToCore(
-                MQTT_Connect,     /* Function that implements the task. */
-                "MQTT CONNECT",    /* Text name for the task. */
-                2048,                     /* Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) */
-                ( void * ) 1,             /* Parameter passed into the task. */
-                8,                        /* Priority at which the task is created. */
-                &xMQTT_Connect,    /* Used to pass out the created task's handle. */
-                1);                       /* ESP Core to run task on. */
-
-  if ( xReturned == pdPASS ) { 
-    /* The task was created.  Use the task's handle to delete the task. */
-    // Serial.println(" MQTT CONNECT TASK CREATED"); 
-    //vTaskSuspend(xMQTT_Connect ); // SUSPEND UNTIL WIFI CONNECTION IS ESTABLISHED
-  }
-  else{
-    Serial.println(" UNABLE TO CREATE MQTT CONNECT TASK"); 
-  }
-}
-
-void vLOOP( void * pvParameters )  {
-      configASSERT( ( ( uint32_t ) pvParameters ) == 1 );    
-      //checkHEAP("vLOOP-BEGIN"); 
-      
- for( ;; ) {
-     // Task code goes here.   
-    mqtt.loop();          // mqtt MQTT CONNECTION LOOP   
-    // checkHEAP("vLOOP-BEGIN");    
-    vTaskDelay(300 / portTICK_PERIOD_MS);  
- }
-}
-
-// Function that creates a task.
-void vLOOPFunction( void ) {
-   BaseType_t xReturned;
-
-    // Create the task, storing the handle. 
-    xReturned = xTaskCreatePinnedToCore(
-                    vLOOP,               // Function that implements the task. 
-                    "vLOOP",    // Text name for the task. 
-                    8096,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
-                    ( void * ) 1,       // Parameter passed into the task. 
-                    15,                  // Priority at which the task is created. 
-                    &xLOOPHandle,        // Used to pass out the created task's handle. 
-                    0);                 // ESP Core to run task on. 
-
-    if( xReturned == pdPASS ){  
-      // The task was created.  Use the task's handle to delete the task. 
-      // Serial.println(" vLOOP TASK CREATED"); 
-    }
-    else{
-      Serial.println("UNABLE TO CREATE vLOOP TASK"); 
-    }
-}
-
-void initMQTT(void){ 
-
-    Serial.printf("\nMQTT Server : %s   PORT : %d \n", mqtt_server, mqtt_port ); 
-    mqtt.setServer(mqtt_server,  mqtt_port); // Configure the MQTT server with IPaddress and port    stationInfo.remoteMqttPort
-    mqtt.setCallback(callback); // This function will be invoked when client received subscribed topic 
-    
-    mqtt.setBufferSize(2000);
-    mqtt.setKeepAlive(15);
-    mqtt.setSocketTimeout(15);    
-
-    MQTT_ConnectFunction();  
-    vLOOPFunction();  
-}
-
-
-//********************************************************************************************
-//                                      MQTT SETUP ENDS                                      *
-//********************************************************************************************
-
-
-//######################## UTIL FUNCTIONS ###########################
-//Stack size (Bytes in ESP32, words in Vanilla FreeRTOS)
-void checkHEAP(const char* Name){
-    //TOTAL AVAILABLE HEAP IN BYTES FOR ESP32 AND THE AMOUNT OF BYTES LEFT IN A SPECIFIC TASK'S STACK
-    Serial.print("\n ==>  ");
-    Serial.print(Name);  
-    Serial.print(" HEAP AVAILABLE :  ");  
-    Serial.print(xPortGetFreeHeapSize());
-    Serial.print(" BYTES  "); 
-    Serial.print("   TASK STACK AVAILABLE "); 
-    Serial.print(uxTaskGetStackHighWaterMark(NULL)*4); 
-    Serial.print(" BYTES  \n"); 
-
-}
-
-
-void initialize(void){
-  vNTPFunction();     // INIT NTP PROTOCOL FOR TIME KEEPING   
-
-  //CONNECT TO WIFI
-  Serial.printf("Connecting to %s \n", ssid);
+  WiFi.mode(WIFI_STA); // Station Mode
   WiFi.begin(ssid, password);
-  
+
   while (WiFi.status() != WL_CONNECTED) {
-      vTaskDelay(1000 / portTICK_PERIOD_MS); 
-      Serial.print(".");
+    delay(500);
+    Serial.print(".");
   }
 
-  Serial.println("\n\n***** Wi-Fi CONNECTED! *****\n\n");
-   
-  initMQTT();          // INIT MQTT  
-  // vUpdateFunction();
-  
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 }
 
-/*
-TASK TEMPLATE
-void vName( void * pvParameters )  {
-      configASSERT( ( ( uint32_t ) pvParameters ) == 1 );    
-      //checkHEAP("vLOOP-BEGIN"); 
+// 2. Reconnect to MQTT Broker
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    
+    // Create a random client ID
+    String clientId = "ESP32Client-";
+    clientId += String(random(0xffff), HEX);
+    
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
       
- for( ;; ) {
-     // Task code goes here.   
-        
-    vTaskDelay(1000 / portTICK_PERIOD_MS);  
- }
+      // Once connected, subscribe to ALL topics in the subtopic array
+      // Note: We assume the array has 2 elements based on your hardware.ino
+      // {"620169874_sub", "/elet2415"}
+      client.subscribe(subtopic[0]);
+      client.subscribe(subtopic[1]);
+      
+      Serial.print("Subscribed to: ");
+      Serial.print(subtopic[0]);
+      Serial.print(" and ");
+      Serial.println(subtopic[1]);
+      
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
 }
 
-// Function that creates a task.
-void vNameFunction( void ) {
-   BaseType_t xReturned;
+// --------------------------------------------------------------------------
+// MQTT TASK (Handles the Loop)
+// --------------------------------------------------------------------------
+void vMQTT(void * pvParameters) {
+  // Ensure WiFi is connected before starting
+  setup_wifi();
+  
+  // Set Server and Callback
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
 
-    // Create the task, storing the handle. 
-    xReturned = xTaskCreatePinnedToCore(
-                    vName,               // Function that implements the task. 
-                    "vName",    // Text name for the task. 
-                    4096,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
-                    ( void * ) 1,       // Parameter passed into the task. 
-                    4,                  // Priority at which the task is created. 
-                    &xNameHandle,        // Used to pass out the created task's handle. 
-                    1);                 // ESP Core to run task on. 
-
-    if( xReturned == pdPASS ){  
-      // The task was created.  Use the task's handle to delete the task. 
-      // Serial.println(" vName TASK CREATED"); 
+  // Infinite Task Loop
+  for (;;) {
+    if (!client.connected()) {
+      reconnect();
     }
-    else{
-      Serial.println("UNABLE TO CREATE vName TASK"); 
-    }
-}
-*/
-
-
-
-// Function that creates a task.
-void vButtonCheckFunction( void ) {
-   BaseType_t xReturned;
-
-    // Create the task, storing the handle. 
-    xReturned = xTaskCreatePinnedToCore(
-                    vButtonCheck,               // Function that implements the task. 
-                    "vButtonCheck",    // Text name for the task. 
-                    4096,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
-                    ( void * ) 1,       // Parameter passed into the task. 
-                    3,                  // Priority at which the task is created. 
-                    &xButtonCheckeHandle,        // Used to pass out the created task's handle. 
-                    1);                 // ESP Core to run task on. 
-
-    if( xReturned == pdPASS ){  
-      // The task was created.  Use the task's handle to delete the task. 
-      // Serial.println(" vButtonCheck TASK CREATED"); 
-    }
-    else{
-      Serial.println("UNABLE TO CREATE vButtonCheck TASK"); 
-    }
+    client.loop(); // CRITICAL: This checks for incoming messages
+    
+    // Small delay to prevent watchdog timer triggers and allow other tasks to run
+    vTaskDelay(10 / portTICK_PERIOD_MS); 
+  }
 }
 
+// --------------------------------------------------------------------------
+// MAIN FUNCTIONS (Called from hardware.ino)
+// --------------------------------------------------------------------------
 
-// Function that creates a task.
-void vUpdateFunction( void ) {
-   BaseType_t xReturned;
-
-    // Create the task, storing the handle. 
-    xReturned = xTaskCreatePinnedToCore(
-                    vUpdate,               // Function that implements the task. 
-                    "vUpdate",    // Text name for the task. 
-                    4096,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
-                    ( void * ) 1,       // Parameter passed into the task. 
-                    6,                  // Priority at which the task is created. 
-                    &xUpdateHandle,        // Used to pass out the created task's handle. 
-                    1);                 // ESP Core to run task on. 
-
-    if( xReturned == pdPASS ){  
-      // The task was created.  Use the task's handle to delete the task. 
-      // Serial.println(" vUpdate TASK CREATED"); 
-    }
-    else{
-      Serial.println("UNABLE TO CREATE vUpdate TASK"); 
-    }
+void initMQTT(void) {
+  // Create the FreeRTOS task to handle MQTT
+  // This prevents the main loop from being blocked
+  xTaskCreatePinnedToCore(
+    vMQTT,              // Task function
+    "MQTT_Task",        // Name
+    4096,               // Stack size (increased for safety)
+    NULL,               // Parameters
+    1,                  // Priority
+    &xMQTT_Connect,     // Handle
+    1                   // Core
+  );
 }
+
+// Wrapper to publish messages easily
+bool publish(const char *topic, const char *payload) {
+  if (client.connected()) {
+    return client.publish(topic, payload);
+  }
+  return false;
+}
+
+#endif

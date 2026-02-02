@@ -53,7 +53,7 @@ class Ntp {
           const long  gmtOffset_sec       = -5*3600;
           const int   daylightOffset_sec  = 0;
           int         currenttime         = 0;
-          const char* time_zone           = "EST+5EDT,M3.2.0/2,M11.1.0/2"; //"CET-1CEST,M3.5.0,M10.5.0/3";  // TimeZone rule for Europe/Rome including daylight adjustment rules (optional)
+          const char* time_zone = "EST5"; //"CET-1CEST,M3.5.0,M10.5.0/3";  // TimeZone rule for Europe/Rome including daylight adjustment rules (optional)
           
 
   public:
@@ -128,8 +128,19 @@ class Ntp {
 
 
 // NTP TASK 
+// UPDATE THIS FUNCTION IN NTP.h
+
 void vNTP( void * pvParameters ) {
   configASSERT( ( ( uint32_t ) pvParameters ) == 1 );   
+  
+  // --- ADD THIS WAIT LOOP ---
+  // Wait for WiFi to connect before starting NTP
+  // This prevents the "Invalid mbox" crash
+  while (WiFi.status() != WL_CONNECTED) {
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+  // --------------------------
+
   Ntp NTP = Ntp("NTP PROTOCOL INITIATED"); // Instatiate NTP Class
   NTP.setup(); // Config NTP
  
@@ -137,7 +148,7 @@ void vNTP( void * pvParameters ) {
       // NTP.printLocalTime();     // it will take some time to sync time :)  
       // NTP.getTime();
       // checkHEAP("NTP");   
-      vTaskDelay(60000 / portTICK_PERIOD_MS);  // DELAY FOR 5 SECONDS  
+      vTaskDelay(60000 / portTICK_PERIOD_MS);  // DELAY FOR 1 MINUTE  
     }     
  }
 
@@ -151,7 +162,7 @@ void vNTPFunction( void ) {
     xReturned = xTaskCreatePinnedToCore(
                     vNTP,               // Function that implements the task. 
                     "NTP Protocol",     // Text name for the task. 
-                    1500,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
+                    4096,               // Stack size (Bytes in ESP32, words in Vanilla FreeRTOS) 
                     ( void * ) 1,       // Parameter passed into the task. 
                     12,                  // Priority at which the task is created. 
                     &xNTPHandle,        // Used to pass out the created task's handle. 
@@ -165,3 +176,13 @@ void vNTPFunction( void ) {
        Serial.println("UNABLE TO CREATE NTP PROTOCOL TASK");
     }
 }
+
+// Add this to the bottom of NTP.h
+unsigned long getTimeStamp(void) {
+    time_t now;
+    time(&now);
+    return now;
+}
+
+
+
